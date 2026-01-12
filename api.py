@@ -13,8 +13,8 @@ app = Flask(__name__)
 CORS(app) 
 
 # rutas de archivos
-ruta_dataset = os.path.join("data","processed","dataset_entrenamiento_final.csv")
-ruta_modelo = os.path.join("models","modelo_riesgo_delictivo.pkl")
+ruta_dataset = os.path.join("data","processed","dataset_entrenamiento_final_final.csv")
+ruta_modelo = os.path.join("models", "trained", "modelo_riesgo_delictivo.pkl")
 
 # Cargar modelo y dataset al iniciar
 print("🔄 Cargando modelo y dataset...")
