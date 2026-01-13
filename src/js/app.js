@@ -1,4 +1,3 @@
-
 // Definición de zonas (desde tu archivo zonas.py)
 const ZONAS = {
   "Azuay": { "lat_min": -3.6, "lat_max": -2.3, "lon_min": -79.6, "lon_max": -78.3 },
@@ -40,6 +39,9 @@ L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
 }).addTo(map);
 
 let heatLayer = null;
+let hotspotMarkers = [];
+let hotspotsVisible = false;
+let currentHotspots = [];
 
 // Poblar selector de zonas
 const selectZona = document.getElementById('zona');
@@ -107,53 +109,37 @@ async function generarPrediccion() {
     // Actualizar mapa con datos reales
     actualizarMapa(resultado.datos, limites);
 
-    // Actualizar panel de información
+    // Actualizar panel de información izquierdo
     actualizarPanel(zona, fecha, resultado.puntos);
 
-    // Mostrar panel y botón toggle
+    // Actualizar panel de riesgo derecho (NUEVO)
+    actualizarPanelRiesgo(resultado);
+
+    // Guardar hotspots
+    if (resultado.hotspots) {
+      currentHotspots = resultado.hotspots;
+      document.querySelector('.hotspot-toggle').style.display = 'block';
+    }
+
+    // Mostrar paneles y botón toggle
     document.getElementById('sidePanel').classList.remove('hidden');
+    document.getElementById('riskPanel').classList.remove('hidden');
     document.querySelector('.toggle-button').style.display = 'block';
 
   } catch (error) {
     console.error('Error al generar predicción:', error);
-    alert(' Error al conectar con el servidor. Asegúrate de que el backend esté ejecutándose.\n\nDetalles: ' + error.message);
+    alert('❌ Error al conectar con el servidor. Asegúrate de que el backend esté ejecutándose.\n\nDetalles: ' + error.message);
   } finally {
     // Ocultar loading
     document.getElementById('loadingOverlay').classList.remove('active');
   }
 }
 
-// Generar datos simulados (reemplazar con llamada real a tu backend)
-function generarDatosSimulados(limites, cantidad) {
-  const datos = [];
-  for (let i = 0; i < cantidad; i++) {
-    const lat = limites.lat_min + Math.random() * (limites.lat_max - limites.lat_min);
-    const lon = limites.lon_min + Math.random() * (limites.lon_max - limites.lon_min);
-    const intensidad = Math.random(); // 0 a 1
-    datos.push([lat, lon, intensidad]);
-  }
-  return datos;
-}
-function normalizarDatos(datosRaw) {
-  let intensidades = datosRaw.map(d => d[2]);
-  let min = Math.min(...intensidades);
-  let max = Math.max(...intensidades);
-
-  // Evitar división entre cero
-  if (max - min < 0.0001) {
-    max = min + 0.0001;
-  }
-
-  return datosRaw.map(d => {
-    return [d[0], d[1], (d[2] - min) / (max - min)];
-  });
-}
-
 function actualizarMapa(datos, limites) {
   // Extraer intensidades sin normalizar
   const intensidades = datos.map(d => d[2]);
 
-  //  Calcular percentiles P10 y P90 para definir rango de riesgo
+  // Calcular percentiles P10 y P90 para definir rango de riesgo
   const sorted = intensidades.slice().sort((a, b) => a - b);
   const p10 = sorted[Math.floor(0.10 * (sorted.length - 1))];
   const p90 = sorted[Math.floor(0.90 * (sorted.length - 1))];
@@ -176,14 +162,14 @@ function actualizarMapa(datos, limites) {
     map.removeLayer(heatLayer);
   }
 
-  // 5) Heatmap con parámetros que EVITAN saturación roja
+  // Heatmap con parámetros que EVITAN saturación roja
   heatLayer = L.heatLayer(datosNormalizados, {
-    radius: 18,        // Aumentado para mejor visibilidad
+    radius: 18,
     blur: 15,
     minZoom: 10,
     maxZoom: 16,
-    minOpacity: 0.15,   // un poco más visible
-    maxOpacity: 1.0,   // opacidad máxima
+    minOpacity: 0.15,
+    maxOpacity: 1.0,
     gradient: {
       0.0: '#0000ff',
       0.2: '#00ffff',
@@ -200,9 +186,144 @@ function actualizarMapa(datos, limites) {
   map.setView([centerLat, centerLon], 10);
 }
 
-// Actualizar panel de información
+// Actualizar panel de información izquierdo
 function actualizarPanel(zona, fecha, puntos) {
   document.getElementById('infoZona').textContent = zona;
   document.getElementById('infoFecha').textContent = new Date(fecha + 'T00:00:00').toLocaleDateString('es-ES');
   document.getElementById('infoPuntos').textContent = puntos.toLocaleString('es-ES');
+}
+
+// Actualizar panel de riesgo derecho (NUEVO)
+function actualizarPanelRiesgo(resultado) {
+  const nivelRiesgo = document.getElementById('nivelRiesgo');
+  const prediccionEventos = document.getElementById('prediccionEventos');
+  const listaInfracciones = document.getElementById('listaInfracciones');
+
+  // Actualizar nivel de riesgo
+  const nivel = resultado.nivel_riesgo || 'MEDIO';
+  nivelRiesgo.textContent = nivel;
+  nivelRiesgo.className = 'risk-level-value ' + nivel;
+
+  // Actualizar predicción de eventos
+  prediccionEventos.textContent = resultado.prediccion_eventos || '-';
+
+  // Actualizar infracciones
+  listaInfracciones.innerHTML = '';
+  
+  if (resultado.perfil_infracciones && resultado.perfil_infracciones.length > 0) {
+    resultado.perfil_infracciones.forEach(infraccion => {
+      const div = document.createElement('div');
+      div.className = 'infraccion-item';
+      
+      const percentage = Math.round(infraccion.prob * 100);
+      
+      div.innerHTML = `
+        <div class="infraccion-tipo">${infraccion.tipo}</div>
+        <div class="infraccion-prob">
+          <div class="prob-bar">
+            <div class="prob-fill" style="width: ${percentage}%"></div>
+          </div>
+          <div class="prob-value">${percentage}%</div>
+        </div>
+      `;
+      
+      listaInfracciones.appendChild(div);
+    });
+  } else {
+    listaInfracciones.innerHTML = '<p style="color: #6c757d; font-size: 0.9rem; text-align: center; padding: 20px;">No hay datos de infracciones disponibles</p>';
+  }
+}
+
+// Toggle hotspots en el mapa
+function toggleHotspots() {
+  hotspotsVisible = !hotspotsVisible;
+  const btn = document.querySelector('.hotspot-toggle');
+  
+  if (hotspotsVisible) {
+    btn.classList.add('active');
+    mostrarHotspots();
+  } else {
+    btn.classList.remove('active');
+    ocultarHotspots();
+  }
+}
+
+// Mostrar hotspots en el mapa
+function mostrarHotspots() {
+  // Limpiar marcadores anteriores
+  ocultarHotspots();
+  
+  if (!currentHotspots || currentHotspots.length === 0) {
+    return;
+  }
+  
+  // Calcular tamaños basados en intensidad
+  const intensidades = currentHotspots.map(h => h.intensidad);
+  const maxIntensidad = Math.max(...intensidades);
+  const minIntensidad = Math.min(...intensidades);
+  
+  currentHotspots.forEach(hotspot => {
+    // Calcular tamaño del marcador (entre 20 y 50 píxeles)
+    const intensidadNorm = (hotspot.intensidad - minIntensidad) / (maxIntensidad - minIntensidad || 1);
+    const size = 20 + (intensidadNorm * 30);
+    
+    // Crear icono personalizado
+    const icon = L.divIcon({
+      className: 'hotspot-marker',
+      html: `<div style="width: ${size}px; height: ${size}px; line-height: ${size}px;">${hotspot.intensidad}</div>`,
+      iconSize: [size, size],
+      iconAnchor: [size/2, size/2]
+    });
+    
+    // Crear contenido del popup
+    let delitosHtml = '';
+    if (hotspot.delitos && hotspot.delitos.length > 0) {
+      delitosHtml = `
+        <div class="hotspot-delitos-list">
+          <h5>Delitos Registrados:</h5>
+          ${hotspot.delitos.map(d => `
+            <div class="hotspot-delito-item">
+              <span class="hotspot-delito-tipo">${d.tipo_delito}</span>
+              <span class="hotspot-delito-count">${d.conteo}</span>
+            </div>
+          `).join('')}
+        </div>
+      `;
+    }
+    
+    const popupContent = `
+      <div class="hotspot-popup">
+        <div class="hotspot-popup-header">
+          <i class="fas fa-fire"></i>
+          Zona de Alto Riesgo
+        </div>
+        <div class="hotspot-popup-body">
+          <div class="hotspot-popup-item">
+            <div class="hotspot-popup-label">Total de Incidentes:</div>
+            <div class="hotspot-popup-value">${hotspot.intensidad}</div>
+          </div>
+          <div class="hotspot-popup-item">
+            <div class="hotspot-popup-label">Delito Principal:</div>
+            <div class="hotspot-popup-value">${hotspot.tipo_delito}</div>
+          </div>
+          ${delitosHtml}
+        </div>
+      </div>
+    `;
+    
+    // Crear marcador
+    const marker = L.marker([hotspot.lat, hotspot.lon], { icon: icon })
+      .bindPopup(popupContent)
+      .addTo(map);
+    
+    hotspotMarkers.push(marker);
+  });
+}
+
+// Ocultar hotspots del mapa
+function ocultarHotspots() {
+  hotspotMarkers.forEach(marker => {
+    map.removeLayer(marker);
+  });
+  hotspotMarkers = [];
 }

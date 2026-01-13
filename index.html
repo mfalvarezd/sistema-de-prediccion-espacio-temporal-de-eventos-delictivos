@@ -36,7 +36,12 @@
         <i class="fas fa-bars"></i>
     </button>
 
-    <!-- Panel lateral (oculto inicialmente) -->
+    <!-- Botón toggle hotspots -->
+    <button class="hotspot-toggle" onclick="toggleHotspots()" style="display: none;">
+        <i class="fas fa-fire"></i> Hotspots
+    </button>
+
+    <!-- Panel lateral izquierdo (oculto inicialmente) -->
     <div class="side-panel hidden" id="sidePanel">
         <div class="panel-header">
             <h2><i class="fas fa-shield-alt"></i> Predicción Delictiva</h2>
@@ -83,6 +88,32 @@
             <div class="legend-item">
                 <div class="legend-color" style="background: #ff0000;"></div>
                 <span>Rojo - Riesgo crítico</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Panel de riesgo derecho (nuevo) -->
+    <div class="risk-panel hidden" id="riskPanel">
+        <div class="risk-header">
+            <h3><i class="fas fa-exclamation-triangle"></i> Análisis de Riesgo</h3>
+            <p>Predicción para la zona seleccionada</p>
+        </div>
+        
+        <div class="risk-content">
+            <div class="risk-level-box">
+                <div class="risk-level-label">Nivel de Riesgo</div>
+                <div class="risk-level-value" id="nivelRiesgo">-</div>
+                <div class="risk-events">
+                    <i class="fas fa-chart-line"></i> 
+                    <span id="prediccionEventos">-</span> eventos estimados
+                </div>
+            </div>
+
+            <div class="infracciones-section">
+                <h4><i class="fas fa-list"></i> Presuntas Infracciones</h4>
+                <div id="listaInfracciones">
+                    <!-- Se llenará dinámicamente -->
+                </div>
             </div>
         </div>
     </div>
