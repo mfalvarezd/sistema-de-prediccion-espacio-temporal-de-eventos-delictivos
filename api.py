@@ -13,15 +13,19 @@ app = Flask(__name__)
 CORS(app) 
 
 # rutas de archivos
+# rutas de archivos
 ruta_dataset = os.path.join("data","processed","dataset_entrenamiento_final_final.csv")
 ruta_modelo = os.path.join("models", "trained", "modelo_riesgo_delictivo.pkl")
 ruta_perfil = os.path.join("data", "processed","aprehendidos_clustering", "perfil_infracciones_por_cluster.csv")
 ruta_riesgo_celdas = os.path.join("data", "processed","aprehendidos_clustering", "riesgo_celdas_aprehendidos.csv")
 ruta_aprehendidos = os.path.join("data", "processed", "aprehendidos_clustering","aprehendidos_con_cluster_y_riesgo.csv")
+ruta_modelo_clasificacion = os.path.join("models", "trained", "modelo_clasificacion_riesgo_delictivo.pkl")
+
 
 # Cargar modelo y datasets al iniciar
 print("🔄 Cargando modelo y datasets...")
 modelo = cargar_modelo(ruta_modelo)
+modelo_clasificacion = cargar_modelo(ruta_modelo_clasificacion)
 df = cargar_dataset(ruta_dataset)
 
 # Cargar datos adicionales
@@ -123,7 +127,6 @@ def obtener_hotspots_zona(limites):
             'tipo_delito': delito_principal['tipo_delito'],
             'delitos': delitos_celda[['tipo_delito', 'conteo']].to_dict('records')
         })
-        print(f"Hotspot: {hotspots[-1]}")
     
     return hotspots
 
@@ -171,7 +174,6 @@ def predecir():
         
         # Obtener hotspots
         hotspots = obtener_hotspots_zona(limites)
-        print(f"Hotspots encontrados: {len(hotspots)}")
 
         return jsonify({
             'datos': heat_data,
@@ -205,6 +207,125 @@ def obtener_zonas():
 @app.route('/api/health', methods=['GET'])
 def health_check():
     return jsonify({'status': 'OK', 'message': 'API funcionando correctamente'})
+
+@app.route('/api/predecir_punto', methods=['POST'])
+def predecir_punto():
+    """Predice riesgo para un punto específico en el mapa"""
+    try:
+        data = request.json
+        lat = data.get('lat')
+        lon = data.get('lon')
+        fecha_str = data.get('fecha')
+        
+        if not all([lat, lon, fecha_str]):
+            return jsonify({'error': 'Latitud, longitud y fecha son requeridas'}), 400
+        
+        # Convertir a float
+        lat = float(lat)
+        lon = float(lon)
+        fecha_dt = pd.to_datetime(fecha_str)
+        
+        # Redondear a la celda del grid (0.001 de precisión)
+        lat_grid = round(lat, 3)
+        lon_grid = round(lon, 3)
+        
+        # Extraer características temporales
+        mes = fecha_dt.month
+        dia = fecha_dt.day
+        dia_semana = fecha_dt.dayofweek
+        
+        # Buscar conteo de llamadas de riesgo en el dataset histórico
+        df_celda = df[
+            (df['lat_grid'] == lat_grid) &
+            (df['lon_grid'] == lon_grid)
+        ]
+        
+        if not df_celda.empty:
+            conteo_llamadas_riesgo = df_celda['conteo_llamadas_riesgo'].mean()
+        else:
+            # Si no hay datos históricos, usar promedio general
+            conteo_llamadas_riesgo = df['conteo_llamadas_riesgo'].mean()
+        
+        # Preparar features para el modelo de clasificación
+        features_dict = {
+            'lat_grid': lat_grid,
+            'lon_grid': lon_grid,
+            'mes': mes,
+            'dia': dia,
+            'dia_semana': dia_semana,
+            'conteo_llamadas_riesgo': conteo_llamadas_riesgo
+        }
+        
+        X_punto = pd.DataFrame([features_dict])
+        
+        # Predecir con el modelo de clasificación
+        probabilidades = modelo_clasificacion.predict_proba(X_punto)[0]
+        prob_bajo_riesgo = float(probabilidades[0])  # Clase 0
+        prob_alto_riesgo = float(probabilidades[1])  # Clase 1
+        
+        # Calcular incertidumbre (1 - max_proba)
+        max_proba = max(prob_bajo_riesgo, prob_alto_riesgo)
+        incertidumbre = 1.0 - max_proba
+        
+        # Calcular entropía como medida alternativa de incertidumbre
+        import numpy as np
+        entropia = -np.sum([p * np.log2(p + 1e-10) for p in probabilidades if p > 0])
+        
+        # Determinar clasificación
+        clasificacion = "ALTO RIESGO" if prob_alto_riesgo > 0.5 else "BAJO RIESGO"
+        
+        # Buscar eventos históricos en esta celda
+        eventos_historicos = len(df_celda)
+        
+        # Buscar delitos graves históricos
+        if not df_celda.empty:
+            delitos_graves = int(df_celda['conteo_delitos_graves'].sum())
+        else:
+            delitos_graves = 0
+        
+        # Buscar información del cluster si existe
+        cluster_info = None
+        nivel_riesgo_cluster = None
+        
+        if df_riesgo_celdas is not None:
+            celda_info = df_riesgo_celdas[
+                (df_riesgo_celdas['lat_grid'] == lat_grid) &
+                (df_riesgo_celdas['lon_grid'] == lon_grid)
+            ]
+            if not celda_info.empty:
+                cluster_id = int(celda_info.iloc[0]['cluster_id'])
+                nivel_riesgo_cluster = celda_info.iloc[0]['nivel_riesgo']
+                cluster_info = cluster_id
+        
+        # Obtener infracciones típicas si hay cluster
+        infracciones_tipicas = []
+        if cluster_info is not None:
+            infracciones_tipicas = obtener_infracciones_cluster(cluster_info)
+        
+        return jsonify({
+            'lat': lat,
+            'lon': lon,
+            'lat_grid': lat_grid,
+            'lon_grid': lon_grid,
+            'fecha': fecha_str,
+            'clasificacion': clasificacion,
+            'prob_alto_riesgo': round(prob_alto_riesgo, 4),
+            'prob_bajo_riesgo': round(prob_bajo_riesgo, 4),
+            'incertidumbre': round(incertidumbre, 4),
+            'entropia': round(float(entropia), 4),
+            'eventos_historicos': eventos_historicos,
+            'delitos_graves_historicos': delitos_graves,
+            'conteo_llamadas_riesgo': round(float(conteo_llamadas_riesgo), 2),
+            'cluster_id': cluster_info,
+            'nivel_riesgo_cluster': nivel_riesgo_cluster,
+            'infracciones_tipicas': infracciones_tipicas[:3]  # Top 3
+        })
+        
+    except Exception as e:
+        print(f"Error en predecir_punto: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': str(e)}), 500
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5000)

@@ -90,6 +90,33 @@ body {
     transform: translateY(0);
 }
 
+.btn-point-select {
+    background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+    color: white;
+    border: none;
+    padding: 10px 30px;
+    font-size: 0.95rem;
+    font-weight: 600;
+    border-radius: 25px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 15px rgba(40, 167, 69, 0.3);
+}
+
+.btn-point-select:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(40, 167, 69, 0.5);
+}
+
+.btn-point-select.active {
+    background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
+    box-shadow: 0 4px 15px rgba(220, 53, 69, 0.4);
+}
+
+.btn-point-select:active {
+    transform: translateY(0);
+}
+
 /* Panel lateral izquierdo */
 .side-panel {
     position: absolute;
@@ -519,6 +546,343 @@ body {
 
 .hotspot-toggle i {
     margin-right: 8px;
+}
+
+/* Panel de predicción por punto */
+.point-prediction-panel {
+    position: absolute;
+    right: 20px;
+    top: 100px;
+    width: 380px;
+    max-height: calc(100vh - 140px);
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+    overflow-y: auto;
+    z-index: 1000;
+    transition: transform 0.3s ease;
+}
+
+.point-prediction-panel.hidden {
+    transform: translateX(420px);
+}
+
+.point-header {
+    background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+    color: white;
+    padding: 20px;
+    border-radius: 12px 12px 0 0;
+    text-align: center;
+    position: relative;
+}
+
+.point-header h3 {
+    margin: 0;
+    font-size: 1.2rem;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+}
+
+.point-header p {
+    margin: 8px 0 0 0;
+    font-size: 0.85rem;
+    opacity: 0.9;
+}
+
+.close-btn {
+    position: absolute;
+    top: 15px;
+    right: 15px;
+    background: rgba(255, 255, 255, 0.2);
+    border: none;
+    color: white;
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+}
+
+.close-btn:hover {
+    background: rgba(255, 255, 255, 0.3);
+    transform: scale(1.1);
+}
+
+.point-content {
+    padding: 20px;
+}
+
+.point-classification {
+    background: #f8f9fa;
+    padding: 20px;
+    border-radius: 10px;
+    text-align: center;
+    margin-bottom: 20px;
+    border: 2px solid #e9ecef;
+}
+
+.classification-label {
+    color: #6c757d;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    margin-bottom: 10px;
+    letter-spacing: 1px;
+}
+
+.classification-value {
+    font-size: 1.8rem;
+    font-weight: 700;
+    text-transform: uppercase;
+}
+
+.classification-value.ALTO {
+    color: #dc3545;
+}
+
+.classification-value.BAJO {
+    color: #28a745;
+}
+
+.point-probabilities {
+    margin-bottom: 20px;
+}
+
+.prob-item {
+    margin-bottom: 15px;
+}
+
+.prob-label {
+    font-size: 0.85rem;
+    color: #495057;
+    font-weight: 600;
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.prob-label i {
+    color: #667eea;
+}
+
+.prob-display {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.prob-bar-container {
+    flex: 1;
+    height: 12px;
+    background: #e9ecef;
+    border-radius: 6px;
+    overflow: hidden;
+}
+
+.prob-bar-fill {
+    height: 100%;
+    transition: width 0.6s ease;
+    border-radius: 6px;
+}
+
+.prob-bar-fill.prob-alto {
+    background: linear-gradient(90deg, #dc3545 0%, #c82333 100%);
+}
+
+.prob-bar-fill.prob-bajo {
+    background: linear-gradient(90deg, #28a745 0%, #20c997 100%);
+}
+
+.prob-percentage {
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: #2c3e50;
+    min-width: 50px;
+    text-align: right;
+}
+
+.uncertainty-section {
+    background: #f8f9fa;
+    padding: 15px;
+    border-radius: 10px;
+    margin-bottom: 20px;
+}
+
+.uncertainty-section h4 {
+    font-size: 0.95rem;
+    color: #2c3e50;
+    margin-bottom: 12px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.uncertainty-section h4 i {
+    color: #ffc107;
+}
+
+.uncertainty-items {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-bottom: 12px;
+}
+
+.uncertainty-item {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.uncertainty-label {
+    font-size: 0.75rem;
+    color: #6c757d;
+    font-weight: 600;
+}
+
+.uncertainty-value {
+    font-size: 1.1rem;
+    color: #2c3e50;
+    font-weight: 700;
+}
+
+.uncertainty-bar {
+    height: 10px;
+    background: #e9ecef;
+    border-radius: 5px;
+    overflow: hidden;
+    margin-bottom: 8px;
+}
+
+.uncertainty-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #28a745 0%, #ffc107 50%, #dc3545 100%);
+    transition: width 0.6s ease;
+    border-radius: 5px;
+}
+
+.uncertainty-hint {
+    font-size: 0.75rem;
+    color: #6c757d;
+    text-align: center;
+    font-style: italic;
+}
+
+.historical-section {
+    margin-bottom: 20px;
+}
+
+.historical-section h4 {
+    font-size: 0.95rem;
+    color: #2c3e50;
+    margin-bottom: 12px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.historical-section h4 i {
+    color: #667eea;
+}
+
+.historical-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+}
+
+.hist-item {
+    background: #f8f9fa;
+    padding: 12px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    border-left: 3px solid #667eea;
+}
+
+.hist-icon {
+    font-size: 1.5rem;
+    color: #667eea;
+}
+
+.hist-data {
+    flex: 1;
+}
+
+.hist-label {
+    font-size: 0.7rem;
+    color: #6c757d;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+.hist-value {
+    font-size: 1.3rem;
+    color: #2c3e50;
+    font-weight: 700;
+}
+
+.typical-infractions {
+    margin-bottom: 20px;
+}
+
+.typical-infractions h4 {
+    font-size: 0.95rem;
+    color: #2c3e50;
+    margin-bottom: 12px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.typical-infractions h4 i {
+    color: #dc3545;
+}
+
+#infraccionesTipicasLista .infraccion-item {
+    background: #fff3cd;
+    border-left: 3px solid #ffc107;
+}
+
+.location-info {
+    background: #e7f3ff;
+    padding: 12px;
+    border-radius: 8px;
+    text-align: center;
+}
+
+.location-coords {
+    font-size: 0.85rem;
+    color: #495057;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+}
+
+.location-coords i {
+    color: #667eea;
+}
+
+/* Cursor personalizado cuando está en modo selección */
+.map-selecting {
+    cursor: crosshair !important;
+}
+
+.map-selecting * {
+    cursor: crosshair !important;
 }
 
 /* Estilos para marcadores de hotspots */

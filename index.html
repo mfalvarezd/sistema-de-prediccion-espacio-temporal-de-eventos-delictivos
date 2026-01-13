@@ -29,6 +29,9 @@
         <button class="btn-predict" onclick="generarPrediccion()">
             <i class="fas fa-magic"></i> Predecir
         </button>
+        <button class="btn-point-select" onclick="activarSeleccionPunto()" id="btnSeleccionPunto">
+            <i class="fas fa-map-pin"></i> Seleccionar Punto
+        </button>
     </div>
 
     <!-- Botón toggle panel -->
@@ -113,6 +116,110 @@
                 <h4><i class="fas fa-list"></i> Presuntas Infracciones</h4>
                 <div id="listaInfracciones">
                     <!-- Se llenará dinámicamente -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Panel de predicción por punto (nuevo) -->
+    <div class="point-prediction-panel hidden" id="pointPredictionPanel">
+        <div class="point-header">
+            <h3><i class="fas fa-crosshairs"></i> Predicción de Punto</h3>
+            <p>Análisis para ubicación específica</p>
+            <button class="close-btn" onclick="cerrarPanelPunto()">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        
+        <div class="point-content">
+            <!-- Clasificación principal -->
+            <div class="point-classification">
+                <div class="classification-label">Clasificación</div>
+                <div class="classification-value" id="puntoClasificacion">-</div>
+            </div>
+
+            <!-- Probabilidades -->
+            <div class="point-probabilities">
+                <div class="prob-item">
+                    <div class="prob-label">
+                        <i class="fas fa-exclamation-circle"></i>
+                        Probabilidad Alto Riesgo
+                    </div>
+                    <div class="prob-display">
+                        <div class="prob-bar-container">
+                            <div class="prob-bar-fill prob-alto" id="probBarAlto"></div>
+                        </div>
+                        <span class="prob-percentage" id="probAltoText">-</span>
+                    </div>
+                </div>
+                
+                <div class="prob-item">
+                    <div class="prob-label">
+                        <i class="fas fa-check-circle"></i>
+                        Probabilidad Bajo Riesgo
+                    </div>
+                    <div class="prob-display">
+                        <div class="prob-bar-container">
+                            <div class="prob-bar-fill prob-bajo" id="probBarBajo"></div>
+                        </div>
+                        <span class="prob-percentage" id="probBajoText">-</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Incertidumbre -->
+            <div class="uncertainty-section">
+                <h4><i class="fas fa-question-circle"></i> Medidas de Incertidumbre</h4>
+                <div class="uncertainty-items">
+                    <div class="uncertainty-item">
+                        <span class="uncertainty-label">Incertidumbre (1 - max p)</span>
+                        <span class="uncertainty-value" id="incertidumbreValor">-</span>
+                    </div>
+                    <div class="uncertainty-item">
+                        <span class="uncertainty-label">Entropía</span>
+                        <span class="uncertainty-value" id="entropiaValor">-</span>
+                    </div>
+                </div>
+                <div class="uncertainty-bar">
+                    <div class="uncertainty-fill" id="incertidumbreFill"></div>
+                </div>
+                <div class="uncertainty-hint" id="incertidumbreHint">-</div>
+            </div>
+
+            <!-- Datos históricos -->
+            <div class="historical-section">
+                <h4><i class="fas fa-history"></i> Datos Históricos</h4>
+                <div class="historical-grid">
+                    <div class="hist-item">
+                        <div class="hist-icon"><i class="fas fa-flag"></i></div>
+                        <div class="hist-data">
+                            <div class="hist-label">Eventos Totales</div>
+                            <div class="hist-value" id="eventosHistoricos">-</div>
+                        </div>
+                    </div>
+                    <div class="hist-item">
+                        <div class="hist-icon"><i class="fas fa-skull-crossbones"></i></div>
+                        <div class="hist-data">
+                            <div class="hist-label">Delitos Graves</div>
+                            <div class="hist-value" id="delitosGraves">-</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Infracciones típicas -->
+            <div class="typical-infractions" id="infraccionesTipicasContainer" style="display: none;">
+                <h4><i class="fas fa-exclamation-triangle"></i> Infracciones Típicas</h4>
+                <div id="infraccionesTipicasLista">
+                    <!-- Se llenará dinámicamente -->
+                </div>
+            </div>
+
+            <!-- Ubicación -->
+            <div class="location-info">
+                <div class="location-coords">
+                    <i class="fas fa-map-marker-alt"></i>
+                    <span id="puntoCoords">-</span>
                 </div>
             </div>
         </div>

@@ -42,6 +42,8 @@ let heatLayer = null;
 let hotspotMarkers = [];
 let hotspotsVisible = false;
 let currentHotspots = [];
+let modoSeleccionPunto = false;
+let marcadorPuntoSeleccionado = null;
 
 // Poblar selector de zonas
 const selectZona = document.getElementById('zona');
@@ -54,6 +56,13 @@ Object.keys(ZONAS).sort().forEach(zona => {
 
 // Establecer fecha de hoy por defecto
 document.getElementById('fecha').valueAsDate = new Date();
+
+// Evento click en el mapa para seleccionar punto
+map.on('click', function(e) {
+  if (modoSeleccionPunto) {
+    predecirPunto(e.latlng.lat, e.latlng.lng);
+  }
+});
 
 // Toggle panel
 function togglePanel() {
@@ -326,4 +335,186 @@ function ocultarHotspots() {
     map.removeLayer(marker);
   });
   hotspotMarkers = [];
+}
+
+// Activar/desactivar modo selección de punto
+function activarSeleccionPunto() {
+  const fecha = document.getElementById('fecha').value;
+  
+  if (!fecha) {
+    alert('⚠️ Por favor, selecciona primero una fecha.');
+    return;
+  }
+  
+  modoSeleccionPunto = !modoSeleccionPunto;
+  const btn = document.getElementById('btnSeleccionPunto');
+  const mapContainer = document.getElementById('map');
+  
+  if (modoSeleccionPunto) {
+    btn.classList.add('active');
+    btn.innerHTML = '<i class="fas fa-times"></i> Cancelar Selección';
+    mapContainer.classList.add('map-selecting');
+    
+    // Ocultar panel de riesgo de zona si está visible
+    document.getElementById('riskPanel').classList.add('hidden');
+    
+    alert('📍 Haz clic en cualquier punto del mapa para obtener una predicción.');
+  } else {
+    btn.classList.remove('active');
+    btn.innerHTML = '<i class="fas fa-map-pin"></i> Seleccionar Punto';
+    mapContainer.classList.remove('map-selecting');
+  }
+}
+
+// Predecir riesgo para un punto específico
+async function predecirPunto(lat, lon) {
+  const fecha = document.getElementById('fecha').value;
+  
+  // Desactivar modo selección
+  modoSeleccionPunto = false;
+  const btn = document.getElementById('btnSeleccionPunto');
+  btn.classList.remove('active');
+  btn.innerHTML = '<i class="fas fa-map-pin"></i> Seleccionar Punto';
+  document.getElementById('map').classList.remove('map-selecting');
+  
+  // Mostrar loading
+  document.getElementById('loadingOverlay').classList.add('active');
+  
+  // Ocultar pantalla de bienvenida
+  document.getElementById('welcomeScreen').style.display = 'none';
+  
+  try {
+    const response = await fetch('http://localhost:5000/api/predecir_punto', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        lat: lat,
+        lon: lon,
+        fecha: fecha
+      })
+    });
+    
+    if (!response.ok) {
+      throw new Error(`Error del servidor: ${response.status}`);
+    }
+    
+    const resultado = await response.json();
+    
+    // Agregar marcador en el punto seleccionado
+    if (marcadorPuntoSeleccionado) {
+      map.removeLayer(marcadorPuntoSeleccionado);
+    }
+    
+    const icon = L.divIcon({
+      className: 'selected-point-marker',
+      html: '<div style="background: #28a745; width: 20px; height: 20px; border-radius: 50%; border: 3px solid white; box-shadow: 0 2px 8px rgba(0,0,0,0.3);"></div>',
+      iconSize: [20, 20],
+      iconAnchor: [10, 10]
+    });
+    
+    marcadorPuntoSeleccionado = L.marker([lat, lon], { icon: icon }).addTo(map);
+    
+    // Centrar mapa en el punto
+    map.setView([lat, lon], 14);
+    
+    // Mostrar panel con resultados
+    mostrarPanelPunto(resultado);
+    
+  } catch (error) {
+    console.error('Error al predecir punto:', error);
+    alert('❌ Error al obtener predicción. ' + error.message);
+  } finally {
+    document.getElementById('loadingOverlay').classList.remove('active');
+  }
+}
+
+// Mostrar panel de predicción de punto
+function mostrarPanelPunto(data) {
+  const panel = document.getElementById('pointPredictionPanel');
+  
+  // Clasificación
+  const clasificacion = data.clasificacion.includes('ALTO') ? 'ALTO' : 'BAJO';
+  const clasificacionEl = document.getElementById('puntoClasificacion');
+  clasificacionEl.textContent = data.clasificacion;
+  clasificacionEl.className = 'classification-value ' + clasificacion;
+  
+  // Probabilidades
+  const probAlto = data.prob_alto_riesgo * 100;
+  const probBajo = data.prob_bajo_riesgo * 100;
+  
+  document.getElementById('probBarAlto').style.width = probAlto + '%';
+  document.getElementById('probAltoText').textContent = probAlto.toFixed(2) + '%';
+  
+  document.getElementById('probBarBajo').style.width = probBajo + '%';
+  document.getElementById('probBajoText').textContent = probBajo.toFixed(2) + '%';
+  
+  // Incertidumbre
+  const incertidumbre = data.incertidumbre;
+  const incertidumbrePct = incertidumbre * 100;
+  
+  document.getElementById('incertidumbreValor').textContent = incertidumbre.toFixed(4);
+  document.getElementById('entropiaValor').textContent = data.entropia.toFixed(4);
+  document.getElementById('incertidumbreFill').style.width = incertidumbrePct + '%';
+  
+  // Interpretación de incertidumbre
+  let hintText = '';
+  if (incertidumbre < 0.2) {
+    hintText = '✓ Predicción muy confiable';
+  } else if (incertidumbre < 0.4) {
+    hintText = '⚠️ Predicción moderadamente confiable';
+  } else {
+    hintText = '⚠️ Alta incertidumbre - precaución';
+  }
+  document.getElementById('incertidumbreHint').textContent = hintText;
+  
+  // Datos históricos
+  document.getElementById('eventosHistoricos').textContent = data.eventos_historicos;
+  document.getElementById('delitosGraves').textContent = data.delitos_graves_historicos;
+  
+  // Infracciones típicas
+  if (data.infracciones_tipicas && data.infracciones_tipicas.length > 0) {
+    const container = document.getElementById('infraccionesTipicasContainer');
+    const lista = document.getElementById('infraccionesTipicasLista');
+    
+    lista.innerHTML = '';
+    data.infracciones_tipicas.forEach(inf => {
+      const div = document.createElement('div');
+      div.className = 'infraccion-item';
+      const pct = Math.round(inf.prob * 100);
+      div.innerHTML = `
+        <div class="infraccion-tipo">${inf.tipo}</div>
+        <div class="infraccion-prob">
+          <div class="prob-bar">
+            <div class="prob-fill" style="width: ${pct}%"></div>
+          </div>
+          <div class="prob-value">${pct}%</div>
+        </div>
+      `;
+      lista.appendChild(div);
+    });
+    
+    container.style.display = 'block';
+  } else {
+    document.getElementById('infraccionesTipicasContainer').style.display = 'none';
+  }
+  
+  // Ubicación
+  document.getElementById('puntoCoords').textContent = 
+    `${data.lat.toFixed(5)}, ${data.lon.toFixed(5)}`;
+  
+  // Mostrar panel
+  panel.classList.remove('hidden');
+}
+
+// Cerrar panel de punto
+function cerrarPanelPunto() {
+  document.getElementById('pointPredictionPanel').classList.add('hidden');
+  
+  // Remover marcador
+  if (marcadorPuntoSeleccionado) {
+    map.removeLayer(marcadorPuntoSeleccionado);
+    marcadorPuntoSeleccionado = null;
+  }
 }
